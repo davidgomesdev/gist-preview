@@ -22,9 +22,6 @@
   }
 
   document.getElementById('submit').onclick = submit;
-  document.onkeypress = function (e) {
-    if (e.keyCode === 13) submit();
-  }
 
   // 1. check query string
   var query = location.search.substring(1);
@@ -44,35 +41,52 @@
 
   // 4. fetch data
   fetch('https://api.github.com/gists/' + gistId)
-  .then(function (res) {
-    return res.json().then(function (body) {
+    .then(async function (res) {
+      const body = await res.json();
+
       if (res.status === 200) {
         return body;
       }
+
       console.log(res, body); // debug
+
       throw new Error('Gist <strong>' + gistId + '</strong>, ' + body.message.replace(/\(.*\)/, ''));
+    })
+    .then(function (info) {
+      loadHtml(fileName, info);
+    })
+    .catch(function (err) {
+      showMainPage();
+      showError(err.message);
     });
-  })
-  .then(function (info) {
-    if (fileName === '') {
-      for (var file in info.files) {
-        // index.html or the first file
-        if (fileName === '' || file === 'index.html') {
-          fileName = file;
-        }
+})();
+
+function loadHtml(fileName, info) {
+  if (fileName === '') {
+    fileName = "index.html";
+  }
+
+  if (info.files.hasOwnProperty(fileName) === false) {
+    throw new Error('File <strong>' + fileName + '</strong> is not exist');
+  }
+
+  // 5. write data
+  var content = info.files[fileName].content;
+  document.write(content);
+
+  //load links
+  var links = document.querySelectorAll("link");
+
+  for (let [_, value] of Object.entries(info.files)) {
+    for (var i = 0; i < links.length; i++) {
+      var href = links[i].getAttribute("href").replace(/^\/|\/$/g, '');
+      if (value.filename === href && value.type === "text/css") {
+        console.log("load file " + value.filename);
+        var style = document.createElement('style');
+        style.type = 'text/css';
+        style.innerHTML = value.content;
+        document.getElementsByTagName('head')[0].appendChild(style);
       }
     }
-
-    if (info.files.hasOwnProperty(fileName) === false) {
-      throw new Error('File <strong>' + fileName + '</strong> is not exist');
-    }
-
-    // 5. write data
-    var content = info.files[fileName].content;
-    document.write(content);
-  })
-  .catch(function (err) {
-    showMainPage();
-    showError(err.message);
-  });
-})();
+  }
+}
