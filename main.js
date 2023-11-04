@@ -1,10 +1,10 @@
 (function () {
-  function showMainPage () {
-    document.getElementById('main').className = 'container';  // remove class 'hide'
-    document.getElementById('loading').className += ' hide';  // add class 'hide'
+  function showMainPage() {
+    document.getElementById('main').className = 'container';
+    document.getElementById('loading').className += ' hide';
   }
 
-  function showError (message) {
+  function showError(message) {
     document.getElementById('alert-box').innerHTML
       += '<div class="alert alert-danger">'
       +    '<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>'
@@ -12,32 +12,36 @@
       +  '</div>';
   }
 
-  function submit () {
+  function submit() {
     var query = document.getElementById('gist_id').value;
-    var fileName = document.getElementById('file_name').value;
-    if (fileName) {
-      query += '/' + fileName;
+    var filename = document.getElementById('file_name').value;
+
+    if (filename) {
+      query += '/' + filename;
     }
+
     location.search = query;  // page will be refreshed
   }
 
   document.getElementById('submit').onclick = submit;
 
-  // 1. check query string
   var query = location.search.substring(1);
+
   if (query.length === 0) {
+    console.info('Showing main page (no gist specified)');
     showMainPage();
+
     return;
   }
 
   // 2. get gist id and file name
   query = query.split('/');
   var gistId = query[0];
-  var fileName = decodeURIComponent(query[1] || '');
+  var filename = decodeURIComponent(query[1] || '');
 
   // 3. write data to blank
   document.getElementById('gist_id').value = gistId;
-  document.getElementById('file_name').value = fileName;
+  document.getElementById('file_name').value = filename;
 
   // 4. fetch data
   fetch('https://api.github.com/gists/' + gistId)
@@ -48,45 +52,53 @@
         return body;
       }
 
-      console.log(res, body); // debug
+      console.error(res, body); // debug
 
       throw new Error('Gist <strong>' + gistId + '</strong>, ' + body.message.replace(/\(.*\)/, ''));
     })
-    .then(function (info) {
-      loadHtml(fileName, info);
+    .then(async function (info) {
+      await loadHtml(filename, info.files);
+      console.info('HTML Loaded successfully!');
     })
     .catch(function (err) {
-      showMainPage();
+      console.error('An error occurred!', err);
       showError(err.message);
     });
 })();
 
-function loadHtml(fileName, info) {
-  if (fileName === '') {
-    fileName = "index.html";
+async function loadHtml(filename, files) {
+  if (filename === '') {
+    filename = "index.html";
   }
 
-  if (info.files.hasOwnProperty(fileName) === false) {
-    throw new Error('File <strong>' + fileName + '</strong> is not exist');
+  if (files.hasOwnProperty(filename) === false) {
+    throw new Error('File <strong>' + filename + '</strong> is not exist');
   }
 
-  // 5. write data
-  var content = info.files[fileName].content;
+  var content = await getGistContent(files, filename);
+
+  console.info('Adding HTML content...');
+  console.debug('Content=' + content);
   document.write(content);
 
-  //load links
-  var links = document.querySelectorAll("link");
+  if (files.hasOwnProperty('style.css') === true) {
+    console.info('Adding CSS...');
 
-  for (let [_, value] of Object.entries(info.files)) {
-    for (var i = 0; i < links.length; i++) {
-      var href = links[i].getAttribute("href").replace(/^\/|\/$/g, '');
-      if (value.filename === href && value.type === "text/css") {
-        console.log("load file " + value.filename);
-        var style = document.createElement('style');
-        style.type = 'text/css';
-        style.innerHTML = value.content;
-        document.getElementsByTagName('head')[0].appendChild(style);
-      }
-    }
+    var cssContent = await getGistContent(files, 'style.css');
+
+    addCss(cssContent);
   }
+}
+
+async function getGistContent(gistFiles, filename) {
+  var rawUrl = gistFiles[filename].raw_url;
+  return await (await fetch(rawUrl)).text();
+}
+
+function addCss(content) {
+  var style = document.createElement('style');
+        style.type = 'text/css';
+        style.innerHTML = content;
+
+  document.getElementsByTagName('head')[0].appendChild(style);
 }
