@@ -1,7 +1,7 @@
 (function () {
   function showMainPage() {
-    document.getElementById('main').style = 'display: flex';  // remove class 'hide'
-    document.getElementById('loading').style = 'display: none';  // add class 'hide'
+    document.getElementById('main').className = 'container';  // remove class 'hide'
+    document.getElementById('loading').className += ' hide';  // add class 'hide'
   }
 
   function showError(message) {
@@ -73,7 +73,7 @@
           console.log(res); // debug
           throw new Error('Gist <strong>' + gistId + '</strong>, ' + body.message.replace(/\(.*\)/, ''));
         }).then(function (content) {
-          document.body.innerHTML = content;
+          document.write(content);
         });
     })
     .catch(function (err) {
